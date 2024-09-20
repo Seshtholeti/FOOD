@@ -1,214 +1,165 @@
+export const msalConfig = {
+  auth: {
+    clientId: "d7b1c114-0856-474a-b1f2-cf517c4b1071",
+    authority:
+      "https://login.microsoftonline.com/e0e80fc4-4c12-4245-8bfd-c06791ad303a",
+    redirectUri: "https://d3icudfrgx44qe.cloudfront.net/index.html", // Ensure this is the correct URL
+  },
+  cache: {
+    cacheLocation: "sessionStorage", // This will ensure the session is maintained during the browser session
+    storeAuthStateInCookie: false,
+  },
+};
+export const loginRequest = {
+  scopes: ["User.Read"],
+};
+
+
+
+
+
+this is index.js
+
+// import React from "react";
+// import ReactDOM from "react-dom/client";
+// import "./index.css";
+// import App from "./App";
+// import reportWebVitals from "./reportWebVitals";
+
+// const root = ReactDOM.createRoot(document.getElementById("root"));
+// root.render(
+//   <React.StrictMode>
+//     <App />
+//   </React.StrictMode>
+// );
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import { PublicClientApplication, EventType } from "@azure/msal-browser";
+import { msalConfig } from "./authConfig";
+console.log("index.js is running");
+const msalInstance = new PublicClientApplication(msalConfig);
+console.log("Initial active account:", msalInstance.getActiveAccount());
+if (
+  !msalInstance.getActiveAccount() &&
+  msalInstance.getAllAccounts().length > 0
+) {
+  console.log("Setting active account to the first account in all accounts");
+  msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
+}
+msalInstance.addEventCallback((event) => {
+  if (event.eventType === EventType.LOGIN_SUCCESS && event.payload.account) {
+    console.log("Login success event received. Setting active account.");
+    msalInstance.setActiveAccount(event.payload.account);
+  } else if (event.eventType === EventType.LOGIN_FAILURE) {
+    console.error("Login failure event received:", event.error);
+  } else {
+    console.log("Event received:", event);
+  }
+});
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App instance={msalInstance} />);
+
+
+this is app.js
+
+// import React from "react";
+// import "./App.css";
+// import Dashboard from "./Dashboard";
+// import Header from "./Header";
+// import Footer from "./Footer";
+// function App() {
+//   return (
+//     <div className="App">
+//       <header>{/* <h1>QuickSight Dashboard</h1> */}</header>
+//       <main>
+//         <Header />
+//         <Dashboard />
+//         <Footer />
+//       </main>
+//     </div>
+//   );
+// }
+// export default App;
+
 import React, { useEffect, useState } from "react";
+import "./App.css";
+import Dashboard from "./Dashboard";
 import Header from "./Header";
-// Import the local images
-import img1 from "./img/img1.jpg";
-import img2 from "./img/img2.jpg";
-import img3 from "./img/img3.jpg";
-import img4 from "./img/img4.jpeg";
-import img5 from "./img/img5.jpg";
-import img6 from "./img/img6.jpeg";
-const columnStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  marginTop: "10px",
-  marginLeft: "10px",
-  gap: "4px",
-  justifyContent: "center",
-  alignItems: "center",
-};
-const containerStyle = {
-  display: "flex",
-  alignItems: "flex-start",
-  color: "#333",
-  padding: "20px",
-  height: "80.9vh",
-  boxSizing: "border-box",
-  // overflow: "hidden",
-};
-const imageContainerStyle = {
-  width: "80%",
-  height: "90%",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  borderRadius: "5px",
-  marginLeft: "10px",
-  marginTop: "25px",
-};
-const imageStyle = {
-  width: "100%",
-  height: "100%",
-  borderRadius: "5px",
-};
-const dataContainerStyle = {
-  display: "flex",
-  flexDirection: "row",
-  justifyContent: "space-between",
-  width: "100%",
-  height: "90%",
-  marginLeft: "10px",
-  marginTop: "30px",
-};
-const cardStyle = {
-  position: "relative",
-  bottom: "10px",
-  backgroundColor: "#064b84",
-  padding: "9px",
-  borderRadius: "5px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  height: "30px",
-  color: "#fff",
-  fontSize: "43px",
-  width: "380px",
-  fontWeight: "600",
-  transition: "background-color 0.3s ease",
-};
-const departmentCardStyle = {
-  ...cardStyle,
-  justifyContent: "flex-start",
-  paddingLeft: "10px",
-};
-const hoveredCardStyle = {
-  backgroundColor: "#ADD8E6",
-  color: "Black",
-  cursor: "pointer",
-};
-const App = () => {
-  const [data, setData] = useState([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [hoveredCardIndex, setHoveredCardIndex] = useState(null);
-  const images = [img1, img2, img3, img4, img5, img6];
+import Footer from "./Footer";
+import {
+  AuthenticatedTemplate,
+  UnauthenticatedTemplate,
+  useMsal,
+  MsalProvider,
+} from "@azure/msal-react";
+import { loginRequest } from "./authConfig";
+const WrappedView = () => {
+  const { instance, accounts } = useMsal();
+  const [accessToken, setAccessToken] = useState(null);
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(
-          "https://w4pcvz4yl0.execute-api.eu-west-2.amazonaws.com/PROD"
-        );
-        const responseData = await response.json();
-        console.log(responseData);
-        setData(responseData.body.flat());
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, []);
-  useEffect(() => {
-    const imageRotationInterval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 5000);
-    return () => clearInterval(imageRotationInterval);
-  }, [images.length]);
-  const getFontSize = (value) => {
-    if (value.length > 10) {
-      return "30px";
-    } else if (value.length > 5) {
-      return "35px";
+    const account = accounts[0];
+    if (account) {
+      instance
+        .acquireTokenSilent({
+          ...loginRequest,
+          account: account,
+        })
+        .then((response) => {
+          setAccessToken(response.accessToken);
+        })
+        .catch((error) => {
+          console.error("Error acquiring token silently:", error);
+        });
     }
-    return "43px";
+  }, [instance, accounts]);
+  const handleLoginPopup = () => {
+    instance
+      .loginPopup(loginRequest)
+      .then((response) => {
+        setAccessToken(response.accessToken);
+      })
+      .catch((error) => {
+        console.error("Login Popup Error:", error);
+      });
   };
-  const renderCard = (
-    label,
-    value,
-    index,
-    style = cardStyle,
-    isFirstCard = false
-  ) => (
-    <div
-      key={index}
-      style={{
-        ...style,
-        ...(hoveredCardIndex === index ? hoveredCardStyle : null),
-        fontSize: isFirstCard ? "43px" : getFontSize(value.toString()),
-      }}
-      onMouseEnter={() => handleMouseEnter(index)}
-      onMouseLeave={() => handleMouseLeave()}
-    >
-      <span>{label && `${label}:`}</span>
-      <span>{value}</span>
-    </div>
-  );
-  const handleMouseEnter = (index) => {
-    setHoveredCardIndex(index);
+  const handleLogout = () => {
+    instance.logoutPopup().catch((error) => {
+      console.error("Logout Error:", error);
+    });
   };
-  const handleMouseLeave = () => {
-    setHoveredCardIndex(null);
-  };
-  const renderColumn = (items, department) => {
-    const orderedKeys = [
-      "CIQ",
-      "LWT",
-      "OFFERED",
-      "ANS",
-      "ANS_RATE",
-      "RDY",
-      "TALK",
-      "ONLINE",
-    ];
-    return (
-      <div style={columnStyle}>
-        {items.map((item, index) => {
-          const orderedItems = orderedKeys.map((key) => ({
-            key,
-            value: item[key],
-          }));
-          return (
-            <React.Fragment key={index}>
-              {renderCard(
-                null,
-                item["DEPARTMENT"],
-                `${department}-${index}-department`,
-                departmentCardStyle,
-                true // Ensure the first card value has a font size of 43px
-              )}
-              {orderedItems.map((orderedItem, subIndex) =>
-                renderCard(
-                  orderedItem.key,
-                  orderedItem.value,
-                  `${department}-${index}-${subIndex}`
-                )
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    );
-  };
-  const reservationItems = data.filter(
-    (item) => item.DEPARTMENT === "Reservation Centre"
-  );
-  const guestRelationsItems = data.filter(
-    (item) => item.DEPARTMENT === "Guest Relations"
-  );
-  const restaurantItems = data.filter(
-    (item) => item.DEPARTMENT === "Restaurant"
-  );
   return (
-    <div style={containerStyle}>
-      <div style={imageContainerStyle}>
-        {images.length > 0 ? (
-          <img
-            src={images[currentImageIndex]}
-            alt="Carousel"
-            style={imageStyle}
-          />
+    <div className="App">
+      <AuthenticatedTemplate>
+        {accessToken ? (
+          <div>
+            <Header onLogout={handleLogout} />
+            <Dashboard />
+            <Footer />
+          </div>
         ) : (
-          <span>Upload Image</span>
+          <p>Loading...</p>
         )}
-      </div>
-      {data.length > 0 && (
-        <div style={dataContainerStyle}>
-          {renderColumn(reservationItems, "Reservation center")}
-          {renderColumn(guestRelationsItems, "Guest Relations")}
-          {/* {renderColumn(restaurantItems, "Restaurant")} */}
+      </AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        <div className="welcome-container">
+          <h1>Welcome to the Wallboard</h1>
+          <p>Please click on the button below to sign in:</p>
+          <button className="sign-in-button" onClick={handleLoginPopup}>
+            Sign in
+          </button>
         </div>
-      )}
+      </UnauthenticatedTemplate>
     </div>
+  );
+};
+const App = ({ instance }) => {
+  return (
+    <MsalProvider instance={instance}>
+      <WrappedView />
+    </MsalProvider>
   );
 };
 export default App;
+
