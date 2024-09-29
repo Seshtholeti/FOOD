@@ -1,4 +1,11 @@
-{
+# Contact Flow Module Resource
+  ConnectContactFlowModule:
+    Type: AWS::Connect::ContactFlowModule
+    Properties:
+      InstanceArn: !Ref ConnectInstanceArn
+      Name: VoiceToChatFlowModule
+      Content: |
+        {
           "Version": "2019-10-30",
           "StartAction": "1ff34355-4c6a-42fb-8e71-627d4ffcde6a",
           "Metadata": {
