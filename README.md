@@ -1,150 +1,157 @@
-// import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-// import { ConnectClient, ListQueuesCommand, GetCurrentMetricDataCommand } from "@aws-sdk/client-connect";
-// // Create S3 and Connect clients
-// const s3Client = new S3Client({ region: 'us-east-1' });
-// const connectClient = new ConnectClient({ region: 'us-east-1' });
-// // Convert data to CSV format
-// function convertToCSV(data) {
-//  const header = "Date,QueueID,resourceType,MetricName,MetricValue\n";
-//  const rows = data.map(row =>
-//    `${row.date},${row.resourceType},${row.queueId},${row.metricName},${row.metricValue}`).join('\n');
-//  return header + rows;
-// }
-// // Convert data to JSON format
-// function convertToJSON(data) {
-//  return JSON.stringify(data, null, 2);
-// }
-// // Upload file to S3
-// async function uploadToS3(fileContent, bucketName, fileName) {
-//  const command = new PutObjectCommand({
-//    Bucket: bucketName,
-//    Key: fileName,
-//    Body: fileContent,
-//    ContentType: fileName.endsWith('.csv') ? 'text/csv' : 'application/json',
-//  });
-//  await s3Client.send(command);
-// }
-// // Fetch all queue IDs dynamically
-// async function fetchQueueIds(instanceId) {
-//  const queueIds = [];
-//  try {
-//    const listQueuesCommand = new ListQueuesCommand({ InstanceId: instanceId });
-//    const response = await connectClient.send(listQueuesCommand);
-//    response.QueueSummaryList.forEach(queue => {
-//      queueIds.push(queue.Id);
-//    });
-//  } catch (err) {
-//    console.error("Error fetching queue IDs:", err);
-//  }
-//  return queueIds;
-// }
-// // Fetch metrics data
-// async function fetchMetrics(filters, groupings, metrics, dateRange, instanceId) {
-//  const dailyMetrics = [];
-//  // Fetch dynamic queue IDs
-//  const queueIds = await fetchQueueIds(instanceId);
-//  // Validate that at least one queue ID is fetched
-//  if (queueIds.length === 0) {
-//    throw new Error("No queue IDs found. Please ensure that there are active queues in the Amazon Connect instance.");
-//  }
-//  // Include at least one queue ID in filters
-//  filters.Queues = queueIds;
-//  // Iterate over the date range and fetch data
-//  for (const date of dateRange) {
-//    const input = {
-//      InstanceId: instanceId,
-//      Filters: filters,
-//      Groupings: groupings,
-//      CurrentMetrics: metrics,
-//      StartTime: new Date(`${date}T00:00:00Z`).toISOString(),
-//      EndTime: new Date(`${date}T23:59:59Z`).toISOString(),
-//    };
-//    try {
-//      const command = new GetCurrentMetricDataCommand(input);
-//      const data = await connectClient.send(command);
-//      // Process the fetched data
-//      data.MetricResults.forEach((result) => {
-//        result.Collections.forEach((collection) => {
-//          dailyMetrics.push({
-//            date,
-//            queueId: result.Dimensions.Queue?.Id || "Unknown Queue",
-//            queueName: result.Dimensions.Queue?.Name || "Unknown Queue",
-//            metricName: collection.Metric.Name,
-//            metricValue: collection.Value,
-//          });
-//        });
-//      });
-//    } catch (err) {
-//      console.error(`Error fetching metrics for date ${date}:`, err);
-//    }
-//  }
-//  return dailyMetrics;
-// }
-// // Main handler function
+
+
+// import fetch from 'node-fetch';
 // export const handler = async (event) => {
-//  const { resourceType, startDate, endDate, isCumulativeReport, format } = event;
-//  const instanceId = process.env.InstanceId;
-//  const bucketName = process.env.S3_BUCKET_NAME;
-//  if (!bucketName || !instanceId) {
-//    return {
-//      statusCode: 500,
-//      body: JSON.stringify({ error: "S3 bucket name or Instance ID is not set in environment variables." }),
-//    };
-//  }
-//  const dateRange = getDateRange(startDate, endDate);
-//  const filters = { Channels: ["VOICE"] };
-//  const groupings = ["QUEUE"];
-//  const metrics = [
-//    { Name: "AGENTS_ONLINE", Unit: "COUNT" },
-//    { Name: "AGENTS_AVAILABLE", Unit: "COUNT" },
-//    { Name: "CONTACTS_IN_QUEUE", Unit: "COUNT" },
-//    { Name: "AGENTS_ERROR", Unit: "COUNT" },
-//    { Name: "CONTACTS_SCHEDULED", Unit: "COUNT" },
-//    { Name: "OLDEST_CONTACT_AGE", Unit: "SECONDS" },
-//  ];
-//  try {
-//    const metricsData = await fetchMetrics(filters, groupings, metrics, dateRange, instanceId);
-//    let reportData;
-//    if (isCumulativeReport) {
-//      // Aggregate metrics data
-//      const aggregatedData = metricsData.reduce((acc, curr) => {
-//        const key = `${curr.metricName}`;
-//        if (!acc[key]) {
-//          acc[key] = { ...curr, metricValue: 0 };
-//        }
-//        acc[key].metricValue += curr.metricValue;
-//        return acc;
-//      }, {});
-//      reportData = Object.values(aggregatedData);
-//    } else {
-//      reportData = metricsData;
-//    }
-//    // Convert the report to the chosen format (CSV or JSON)
-//    const fileContent = format === 'csv' ? convertToCSV(reportData) : convertToJSON(reportData);
-//    const fileName = `${isCumulativeReport ? 'cumulative' : 'daily'}-report-${Date.now()}.${format}`;
-//    // Upload file to S3
-//    await uploadToS3(fileContent, bucketName, fileName);
-//    return {
-//      statusCode: 200,
-//      body: JSON.stringify({
-//        message: "File uploaded successfully.",
-//        fileUrl: `https://${bucketName}.s3.amazonaws.com/${fileName}`,
-//      }),
-//    };
-//  } catch (error) {
-//    console.error("Error generating report:", error);
-//    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-//  }
+//     console.log('Entire event:', JSON.stringify(event, null,2));
+//   const VERIFY_TOKEN = "token_123";
+//   console.log('new',event) 
+//   try {
+//       // Handle GET request for webhook verification
+//       if (event.httpMethod === "GET") {
+//           const queryParams = event.queryStringParameters;
+          
+//           if (
+//               queryParams &&
+//               queryParams["hub.mode"] === "subscribe" &&
+//               queryParams["hub.verify_token"] === VERIFY_TOKEN
+//           ) {
+//               console.log("Webhook verified successfully");
+//               return {
+//                   statusCode: 200,
+//                   body: queryParams["hub.challenge"],  // Respond with the challenge
+//               };
+//           } else {
+//               console.error("Verification failed");
+//               return {
+//                   statusCode: 403,
+//                   body: "Forbidden",
+//               };
+//           }
+//       }
+//       // Handle POST request for receiving messages
+//       if (event.httpMethod === "POST") {
+//           const body = JSON.parse(event.body);
+//           const entries = body.entry;
+//           // Check if the entries are valid
+//           if (!entries || entries.length === 0) {
+//               return { statusCode: 400, body: 'No entry found' };
+//           }
+          
+//           for (const entry of entries) {
+//               const messagingEvents = entry.messaging;
+//               if (!messagingEvents || messagingEvents.length === 0) {
+//                   continue;
+//               }
+//               // Process each messaging event (received message)
+//               for (const messageEvent of messagingEvents) {
+//                   const senderId = messageEvent.sender.id;
+//                   const messageText = messageEvent.message.text;
+//                   // Logging the received message
+//                   console.log(`Received message from ${senderId}: ${messageText}`);
+//                   // sending a reply back to the Instagram user (via Facebook API)
+//                   await sendMessageToInstagram(senderId, `Thank you for your message: ${messageText}`);
+//               }
+//           }
+//           // Return success response
+//           return { statusCode: 200, body: 'EVENT_RECEIVED' };
+//       }
+//       // If the HTTP method is not GET or POST, return a 404 error
+//       return { statusCode: 404, body: 'KMHVC' };
+//   } catch (error) {
+//       console.error("Error processing webhook:", error);
+//       return { statusCode: 500, body: 'Internal Server Error' };
+//   }
 // };
-
-
-// // Utility function to get date range
-// function getDateRange(startDate, endDate) {
-//  const dates = [];
-//  let currentDate = new Date(startDate);
-//  while (currentDate <= new Date(endDate)) {
-//    dates.push(currentDate.toISOString().split("T")[0]);
-//    currentDate.setDate(currentDate.getDate() + 1);
-//  }
-//  return dates;
+// // Function to send a reply back to the Instagram user (via Facebook API)
+// async function sendMessageToInstagram(senderId, messageText) {
+//   const accessToken = 'EAAX8zKLRFn8BO4NcgAnFzaHkFQq116F0JY1cMzJSMyeo8IRmglZBbP4TxwEmGqvprQmZCkg8JKSaylI2o066YYUaFxOntbeHChZCO4D3hAPBHQgMZA5YZCzzwUItHWCaG6u0sRF9HmKVsAC31gsFSHNIZB93ZAJBx4DhTjTNW3HygQwma0eeYEa914HLnRHCwEVKgZDZD';  // Replace with your access token
+//   const url = `https://graph.facebook.com/v12.0/me/messages?access_token=${accessToken}`;
+//   const requestBody = {
+//       recipient: { id: senderId },
+//       message: { text: messageText }
+//   };
+//   try {
+//       const response = await fetch(url, {
+//           method: 'POST',
+//           headers: { 'Content-Type': 'application/json' },
+//           body: JSON.stringify(requestBody)
+//       });
+//       const result = await response.json();
+//       console.log('Message sent to Instagram:', result);
+//   } catch (error) {
+//       console.error('Error sending message to Instagram:', error);
+//   }
 // }
+
+import fetch from 'node-fetch';
+// Declare VERIFY_TOKEN and PAGE_ACCESS_TOKEN globally
+const VERIFY_TOKEN = "token_123";
+const PAGE_ACCESS_TOKEN = "EAAX8zKLRFn8BO4NcgAnFzaHkFQq116F0JY1cMzJSMyeo8IRmglZBbP4TxwEmGqvprQmZCkg8JKSaylI2o066YYUaFxOntbeHChZCO4D3hAPBHQgMZA5YZCzzwUItHWCaG6u0sRF9HmKVsAC31gsFSHNIZB93ZAJBx4DhTjTNW3HygQwma0eeYEa914HLnRHCwEVKgZDZD";
+export const handler = async (event) => {
+   try {
+       // Handle GET Request (Webhook Validation)
+       if (event.httpMethod === "GET") {
+           const params = event.queryStringParameters;
+           if (params["hub.mode"] === "subscribe" && params["hub.verify_token"] === VERIFY_TOKEN) {
+               return {
+                   statusCode: 200,
+                   body: params["hub.challenge"], // Return the challenge value
+               };
+           }
+           return { statusCode: 403, body: "Forbidden - Validation Failed" }; // Invalid token or mode
+       }
+       // Handle POST Request (Incoming Events)
+       if (event.httpMethod === "POST") {
+           const body = JSON.parse(event.body);
+           if (body.object === "instagram") {
+               // Process each entry in the event
+               body.entry.forEach((entry) => {
+                   const messages = entry.messaging;
+                   // Handle each message
+                   messages.forEach(async (messageEvent) => {
+                       const senderId = messageEvent.sender.id; // User ID
+                       const messageText = messageEvent.message?.text || ""; // Received text message
+                       console.log(`Received message: "${messageText}" from Instagram user ${senderId}`);
+                       // Send a reply to the user
+                       await sendReplyToUser(senderId, `You sent: "${messageText}"`);
+                   });
+               });
+               return {
+                   statusCode: 200,
+                   body: "EVENT_RECEIVED", // Meta expects this exact response
+               };
+           }
+           return { statusCode: 404, body: "Unsupported Event Type" };
+       }
+       return { statusCode: 404, body: "Unsupported HTTP Method" };
+   } catch (error) {
+       console.error("Error processing the event:", error);
+       return { statusCode: 500, body: "Internal Server Error" };
+   }
+};
+// Function to Send a Reply to the User
+async function sendReplyToUser(senderId, message) {
+   const url = `https://graph.facebook.com/v16.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
+   const body = {
+       recipient: { id: senderId },
+       message: { text: message },
+   };
+   try {
+       const response = await fetch(url, {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify(body),
+       });
+       const data = await response.json();
+       if (response.ok) {
+           console.log("Reply sent successfully:", data);
+       } else {
+           console.error("Error sending reply:", data);
+       }
+   } catch (error) {
+       console.error("Error sending reply:", error);
+   }
+}
+
+
+
